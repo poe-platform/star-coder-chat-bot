@@ -11,9 +11,16 @@ from fastapi_poe.types import QueryRequest
 from sse_starlette.sse import ServerSentEvent
 
 BASE_URL = "https://api.together.xyz/inference"
-DEFAULT_SYSTEM_PROMPT = """\
-You are the StarCoderChat bot. You help users with programming and code related questions.
-Wrap any code blocks in your response in backticks so that it can be rendered using Markdown."""
+
+BASE_PROMPT = """"
+<|user|>
+ Hi!
+<|end|>
+<|assistant|>
+ I am the StarCoderChat bot. I help users with programming and code related questions. \
+I wrap any code in my response in backticks so that it can be rendered using Markdown.
+<|end|>
+"""
 
 
 @dataclass
@@ -22,17 +29,17 @@ class StarCoderChatBot(PoeBot):
 
     def construct_prompt(self, query: QueryRequest):
         prompt = "\n"
-        prompt += f"<system>: {DEFAULT_SYSTEM_PROMPT}\n"
+        prompt = BASE_PROMPT
         for message in query.query:
             if message.role == "user":
-                prompt += f"<human>: {message.content}\n"
+                prompt += f"<|user|>\n {message.content}\n<|end|>\n"
             elif message.role == "bot":
-                prompt += f"<bot>: {message.content}\n"
+                prompt += f"<|assistant|>\n {message.content}\n<|end|>\n"
             elif message.role == "system":
                 pass
             else:
                 raise ValueError(f"unknown role {message.role}.")
-        prompt += "<bot>:"
+        prompt += "<|assistant|>"
         return prompt
 
     async def query_together_ai(self, prompt) -> str:
@@ -40,7 +47,7 @@ class StarCoderChatBot(PoeBot):
             "model": "HuggingFaceH4/starchat-alpha",
             "prompt": prompt,
             "max_tokens": 1000,
-            "stop": ["<|endoftext|>", "<|end|>", "<human>", "<bot>"],
+            "stop": ["<|endoftext|>", "<|end|>"],
             "stream_tokens": True,
             "temperature": 0.7,
             "top_p": 0.7,
